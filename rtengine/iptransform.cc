@@ -454,7 +454,9 @@ bool ImProcFunctions::transCoord (int W, int H, const std::vector<Coord2D> &src,
     double cost = cos (params->rotate.degree * rtengine::RT_PI / 180.0);
     double sint = sin (params->rotate.degree * rtengine::RT_PI / 180.0);
 
-    double ascale = ascaleDef > 0 ? ascaleDef : (params->commonTrans.autofill && params->perspective.render ? getTransformAutoFill (oW, oH, pLCPMap) : 1.0 / params->commonTrans.getScale());
+    const double ascale = ascaleDef > 0 ? ascaleDef : (params->commonTrans.autofill && params->perspective.render ? getTransformAutoFill (oW, oH, pLCPMap) : 1.0 / params->commonTrans.getScale());
+    const double hscale = ascale / params->commonTrans.getScaleHorizontally();
+    const double vscale = ascale / params->commonTrans.getScaleVertically();
 
     // auxiliary variables for perspective correction
     // Simple.
@@ -494,8 +496,8 @@ bool ImProcFunctions::transCoord (int W, int H, const std::vector<Coord2D> &src,
     for (size_t i = 0; i < src.size(); i++) {
         double x_d = src[i].x, y_d = src[i].y;
 
-        y_d = ascale * (y_d - h2);     // centering x coord & scale
-        x_d = ascale * (x_d - w2);     // centering x coord & scale
+        y_d = hscale * (y_d - h2);     // centering x coord & scale
+        x_d = vscale * (x_d - w2);     // centering x coord & scale
 
         switch (perspectiveType) {
             case PerspType::NONE:
@@ -1193,6 +1195,8 @@ void ImProcFunctions::transformGeneral(bool highQuality, Imagefloat *original, I
             p_projection_shift_vert, p_projection_scale);
 
     const double ascale = params->commonTrans.autofill && params->perspective.render ? getTransformAutoFill(oW, oH, pLCPMap) : 1.0 / params->commonTrans.getScale();
+    const double hscale = ascale / params->commonTrans.getScaleHorizontally();
+    const double vscale = ascale / params->commonTrans.getScaleVertically();
 
     const bool darkening = (params->vignetting.amount <= 0.0);
     const bool useLog = params->commonTrans.method == "log" && highQuality;
@@ -1226,8 +1230,8 @@ void ImProcFunctions::transformGeneral(bool highQuality, Imagefloat *original, I
             double x_d = x;
             double y_d = y;
 
-            x_d = ascale * (x_d + centerFactorx);     // centering x coord & scale
-            y_d = ascale * (y_d + centerFactory);     // centering y coord & scale
+            x_d = hscale * (x_d + centerFactorx);     // centering x coord & scale
+            y_d = vscale * (y_d + centerFactory);     // centering y coord & scale
 
             switch (perspectiveType) {
                 case PerspType::NONE:
@@ -1307,8 +1311,8 @@ void ImProcFunctions::transformGeneral(bool highQuality, Imagefloat *original, I
                     double vignmul = 1.0;
 
                     if (enableVignetting) {
-                        const double vig_x_d = ascale * (x + cx - vig_w2); // centering x coord & scale
-                        const double vig_y_d = ascale * (y + cy - vig_h2); // centering y coord & scale
+                        const double vig_x_d = hscale * (x + cx - vig_w2); // centering x coord & scale
+                        const double vig_y_d = vscale * (y + cy - vig_h2); // centering y coord & scale
                         const double vig_Dx = vig_x_d * cost - vig_y_d * sint;
                         const double vig_Dy = vig_x_d * sint + vig_y_d * cost;
                         const double r2 = sqrt(vig_Dx * vig_Dx + vig_Dy * vig_Dy);
@@ -1447,7 +1451,17 @@ bool ImProcFunctions::needsPerspective () const
 
 bool ImProcFunctions::needsScale () const
 {
-    return std::abs(1.0 - params->commonTrans.getScale()) > 1e-6;
+  return std::abs(1.0 - params->commonTrans.getScale()) > 1e-6;
+}
+
+bool ImProcFunctions::needsScaleHorizontally() const
+{
+  return std::abs(1.0 - params->commonTrans.getScaleHorizontally()) > 1e-6;
+}
+
+bool ImProcFunctions::needsScaleVertically() const
+{
+  return std::abs(1.0 - params->commonTrans.getScaleVertically()) > 1e-6;
 }
 
 bool ImProcFunctions::needsGradient () const
@@ -1487,7 +1501,7 @@ bool ImProcFunctions::needsTransform (int oW, int oH, int rawRotationDeg, const 
         std::unique_ptr<const LensCorrection> pLCPMap = LFDatabase::getInstance()->findModifier(params->lensProf, metadata, oW, oH, params->coarse, rawRotationDeg);
         needsLf = pLCPMap.get();
     }
-    return needsCA () || needsDistortion () || needsRotation () || needsPerspective () || needsScale () || needsGradient () || needsPCVignetting () || needsVignetting () || needsLCP() || needsMetadata() || needsLf;
+    return needsCA () || needsDistortion () || needsRotation () || needsPerspective () || needsScale () || needsScaleHorizontally () || needsScaleVertically () || needsGradient () || needsPCVignetting () || needsVignetting () || needsLCP() || needsMetadata() || needsLf;
 }
 
 
